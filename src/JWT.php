@@ -101,8 +101,16 @@ class JWT extends AbstractJWT
         try {
             $token = $token ?? $this->getHeaderToken();
             $tokenObj = $this->getTokenObj($token);
-            $config = $this->getSceneConfig($scene ?? $this->getScene());
+            $scene = $scene ?? $this->getScene();
+            $config = $this->getSceneConfig($scene);
             $claims = $tokenObj->claims()->all();
+
+            // 获取当前环境的场景配置并且验证该token是否是该配置生成的
+            $jwt_scene = $claims['jwt_scene'] ?? $this->getScene();
+            if ($independentTokenVerify && $jwt_scene != $scene) {
+                // $config = $this->getSceneConfig($this->getScene());
+                throw new TokenValidException('Token authentication does not pass', 401);
+            }
 
             $signer = new $config['supported_algs'][$config['alg']];
 
@@ -113,11 +121,6 @@ class JWT extends AbstractJWT
 
             if ($validate && !$this->validateToken($signer, $this->getKey($config), $token)){
                 throw new TokenValidException('Token authentication does not pass', 401);
-            }
-
-            // 获取当前环境的场景配置并且验证该token是否是该配置生成的
-            if ($independentTokenVerify) {
-                $config = $this->getSceneConfig($this->getScene());
             }
 
             return true;
